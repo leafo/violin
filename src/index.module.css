@@ -18,3 +18,7 @@ body {
   color: var(--ink);
   font-family: Georgia, "Times New Roman", serif;
 }
+
+:root {
+  --bad: #b3261e;
+}

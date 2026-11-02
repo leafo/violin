@@ -9,9 +9,9 @@ export function getContext() {
 }
 
 // Bowed-string approximation: sawtooth through a lowpass, slow attack, light vibrato.
-export function playNote(midi, duration = 1.4) {
+export function playNote(midi, duration = 1.4, delay = 0) {
   const ac = getContext();
-  const t = ac.currentTime;
+  const t = ac.currentTime + delay;
   const freq = midiToFreq(midi);
 
   const osc = ac.createOscillator();
@@ -41,4 +41,17 @@ export function playNote(midi, duration = 1.4) {
   vibrato.start(t);
   osc.stop(t + duration);
   vibrato.stop(t + duration);
+}
+
+export function click(delay = 0, accent = false) {
+  const ac = getContext();
+  const t = ac.currentTime + delay;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.frequency.value = accent ? 1500 : 1000;
+  gain.gain.setValueAtTime(0.35, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t);
+  osc.stop(t + 0.07);
 }

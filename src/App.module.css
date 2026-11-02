@@ -191,3 +191,37 @@ button.on {
   font-size: 0.85rem;
   color: var(--muted);
 }
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.tabs button.on {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.status {
+  margin: 12px 0;
+  text-align: center;
+  color: var(--muted);
+  min-height: 1.5em;
+}
+
+.status[data-big="true"] {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.2;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.settings input[type="range"] {
+  width: 140px;
+}

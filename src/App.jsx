@@ -3,7 +3,8 @@ import Staff from "./Staff";
 import Fingerboard from "./Fingerboard";
 import { KEYS, POSITIONS, STRINGS, noteName, notePool } from "./music";
 import { playNote } from "./audio";
-import { startListening } from "./pitch";
+import { useMic } from "./useMic";
+import Phrase from "./Phrase";
 import styles from "./App.module.css";
 
 const DEFAULTS = {
@@ -13,6 +14,10 @@ const DEFAULTS = {
   order: "random",
   alwaysShow: false,
   autoPlay: true,
+  mode: "note",
+  phraseLen: 8,
+  bpm: 60,
+  click: true,
 };
 
 const NOTE_DURATION = 1.4;
@@ -126,26 +131,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!listening) {
-      setHeard(null);
-      return;
-    }
-    let stop = null;
-    let cancelled = false;
-    startListening(onPitch)
-      .then((fn) => {
-        if (cancelled) fn();
-        else stop = fn;
-      })
-      .catch(() => {
-        setMicError("Microphone access was blocked.");
-        setListening(false);
-      });
-    return () => {
-      cancelled = true;
-      if (stop) stop();
-    };
-  }, [listening, onPitch]);
+    if (!listening) setHeard(null);
+  }, [listening]);
+
+  useMic(listening && settings.mode === "note", onPitch, () => {
+    setMicError("Microphone access was blocked.");
+    setListening(false);
+  });
 
   const update = (patch) => setSettings((s) => ({ ...s, ...patch }));
 
@@ -171,11 +163,31 @@ export default function App() {
         <p>Read the note, find it on the fingerboard, play it.</p>
       </header>
 
+      <div className={styles.tabs}>
+        <button
+          className={settings.mode === "note" ? styles.on : ""}
+          onClick={() => update({ mode: "note" })}
+        >
+          Single notes
+        </button>
+        <button
+          className={settings.mode === "phrase" ? styles.on : ""}
+          onClick={() => update({ mode: "phrase" })}
+        >
+          Phrases
+        </button>
+      </div>
+
+      {settings.mode === "phrase" ? (
+        <div>
+          <Phrase keyDef={keyDef} pool={pool} settings={settings} />
+        </div>
+      ) : (
       <div className={styles.layout}>
         <section className={styles.card}>
           {note ? (
             <>
-              <Staff note={note} keyDef={keyDef} matched={matched} />
+              <Staff notes={[note]} keyDef={keyDef} statuses={[matched ? "hit" : "idle"]} />
               <div className={styles.answer}>
                 {showHints ? (
                   <>
@@ -249,6 +261,7 @@ export default function App() {
           </p>
         </section>
       </div>
+      )}
 
       <section className={`${styles.card} ${styles.settings}`}>
         <label>
@@ -274,13 +287,39 @@ export default function App() {
             ))}
           </select>
         </label>
-        <label>
-          Order
-          <select value={settings.order} onChange={(e) => update({ order: e.target.value })}>
-            <option value="random">Random notes</option>
-            <option value="scale">Scale up and down</option>
-          </select>
-        </label>
+        {settings.mode === "note" ? (
+          <label>
+            Order
+            <select value={settings.order} onChange={(e) => update({ order: e.target.value })}>
+              <option value="random">Random notes</option>
+              <option value="scale">Scale up and down</option>
+            </select>
+          </label>
+        ) : (
+          <>
+            <label>
+              Length
+              <select
+                value={settings.phraseLen}
+                onChange={(e) => update({ phraseLen: Number(e.target.value) })}
+              >
+                <option value={4}>4 notes</option>
+                <option value={8}>8 notes</option>
+              </select>
+            </label>
+            <label>
+              Tempo: {settings.bpm} bpm
+              <input
+                type="range"
+                min="40"
+                max="100"
+                step="5"
+                value={settings.bpm}
+                onChange={(e) => update({ bpm: Number(e.target.value) })}
+              />
+            </label>
+          </>
+        )}
         <fieldset>
           <legend>Strings</legend>
           {STRINGS.map((s, i) => (
@@ -294,14 +333,25 @@ export default function App() {
             </label>
           ))}
         </fieldset>
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={settings.autoPlay}
-            onChange={(e) => update({ autoPlay: e.target.checked })}
-          />
-          Play each new note aloud
-        </label>
+        {settings.mode === "note" ? (
+          <label className={styles.check}>
+            <input
+              type="checkbox"
+              checked={settings.autoPlay}
+              onChange={(e) => update({ autoPlay: e.target.checked })}
+            />
+            Play each new note aloud
+          </label>
+        ) : (
+          <label className={styles.check}>
+            <input
+              type="checkbox"
+              checked={settings.click}
+              onChange={(e) => update({ click: e.target.checked })}
+            />
+            Metronome click while playing
+          </label>
+        )}
         <label className={styles.check}>
           <input
             type="checkbox"

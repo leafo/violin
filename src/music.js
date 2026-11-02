@@ -109,3 +109,29 @@ export function notePool(key, position, allowedStrings) {
 export function noteName(note) {
   return `${note.letter}${accSymbol(note.acc)}`;
 }
+
+export function tonicPc(key) {
+  return (NATURAL_PC[LETTERS.indexOf(key.tonic)] + key.acc + 12) % 12;
+}
+
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+// Stepwise random walk that starts on the tonic and lands on the nearest one.
+export function generatePhrase(pool, key, length) {
+  if (pool.length === 0) return [];
+  const tonics = pool.map((n, i) => (n.midi % 12 === tonicPc(key) ? i : -1)).filter((i) => i >= 0);
+  let i = tonics.length ? pick(tonics) : Math.floor(Math.random() * pool.length);
+  const out = [i];
+  while (out.length < length - 1) {
+    const s = pick([-2, -1, -1, 1, 1, 2, 0]);
+    let j = i + s;
+    if (j < 0 || j >= pool.length) j = i - s;
+    i = Math.max(0, Math.min(pool.length - 1, j));
+    out.push(i);
+  }
+  if (tonics.length) {
+    i = tonics.reduce((best, t) => (Math.abs(t - i) < Math.abs(best - i) ? t : best));
+  }
+  out.push(i);
+  return out.map((idx) => pool[idx]);
+}

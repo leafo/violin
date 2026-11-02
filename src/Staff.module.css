@@ -1,7 +1,7 @@
 .staff {
   display: block;
   width: 100%;
-  max-width: 520px;
+  max-width: 640px;
   height: auto;
   margin: 0 auto;
 }
@@ -9,6 +9,11 @@
 .line {
   stroke: var(--ink);
   stroke-width: 1.4;
+}
+
+.thick {
+  stroke: var(--ink);
+  stroke-width: 4;
 }
 
 .ledger {
@@ -27,20 +32,39 @@
   fill: var(--ink);
 }
 
-.note ellipse,
-.matched ellipse {
-  fill: var(--ink);
+.idle {
+  --c: var(--ink);
 }
 
-.matched ellipse {
-  fill: var(--good);
+.active {
+  --c: var(--accent);
+}
+
+.hit {
+  --c: var(--good);
+}
+
+.miss {
+  --c: var(--bad);
+}
+
+.head {
+  fill: var(--c);
 }
 
 .stem {
-  stroke: var(--ink);
+  stroke: var(--c);
   stroke-width: 2;
 }
 
-.matched .stem {
-  stroke: var(--good);
+.label {
+  font-size: 15px;
+  font-weight: 700;
+  fill: var(--c);
+}
+
+.where {
+  font-size: 12px;
+  font-weight: 400;
+  fill: var(--muted);
 }
