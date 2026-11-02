@@ -1,0 +1,193 @@
+.app {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: 0.02em;
+}
+
+.header p {
+  margin: 4px 0 20px;
+  color: var(--muted);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 720px) {
+  .layout {
+    grid-template-columns: 1.6fr 1fr;
+  }
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.answer {
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  margin: 8px 0 12px;
+}
+
+.noteName {
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.hidden {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+button {
+  font: inherit;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button.primary,
+button.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.listen {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.error {
+  color: var(--accent);
+}
+
+.meter {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--line);
+}
+
+.meterZone {
+  position: absolute;
+  left: 32.5%;
+  width: 35%;
+  top: 0;
+  bottom: 0;
+  background: rgba(61, 122, 58, 0.35);
+}
+
+.needle {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 22px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.needle[data-good="true"] {
+  background: var(--good);
+}
+
+.heard {
+  margin: 0;
+  color: var(--muted);
+}
+
+.caption {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  align-items: flex-end;
+}
+
+.settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.settings select {
+  font: inherit;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.settings fieldset {
+  display: flex;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 12px 6px;
+  margin: 0;
+}
+
+.settings legend {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.settings .check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+}
+
+.footnote {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

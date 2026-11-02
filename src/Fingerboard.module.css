@@ -1,0 +1,58 @@
+.board {
+  display: block;
+  width: 100%;
+  max-width: 230px;
+  height: auto;
+  margin: 0 auto;
+}
+
+.wood {
+  fill: #231a14;
+}
+
+.nut {
+  fill: #e8dcc2;
+}
+
+.string {
+  stroke: #c9b78f;
+  stroke-linecap: round;
+}
+
+.stringName {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--muted);
+}
+
+.ghost {
+  fill: rgba(232, 220, 194, 0.16);
+}
+
+.finger {
+  fill: var(--accent);
+}
+
+.open {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.current text {
+  font-size: 15px;
+  font-weight: 700;
+  fill: #fff;
+}
+
+.open + text {
+  fill: var(--accent);
+  font-size: 12px;
+}
+
+.ghostOpen {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  opacity: 0.5;
+}

@@ -1,0 +1,46 @@
+.staff {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+  margin: 0 auto;
+}
+
+.line {
+  stroke: var(--ink);
+  stroke-width: 1.4;
+}
+
+.ledger {
+  stroke: var(--ink);
+  stroke-width: 1.8;
+}
+
+.clef {
+  font-family: "Noto Music", "Bravura", "Symbola", serif;
+  font-size: 78px;
+  fill: var(--ink);
+}
+
+.accidental {
+  font-size: 30px;
+  fill: var(--ink);
+}
+
+.note ellipse,
+.matched ellipse {
+  fill: var(--ink);
+}
+
+.matched ellipse {
+  fill: var(--good);
+}
+
+.stem {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.matched .stem {
+  stroke: var(--good);
+}
