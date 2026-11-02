@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import SingleNote from "./SingleNote";
 import Phrase from "./Phrase";
 import Settings from "./Settings";
+import { useWakeLock } from "./useWakeLock";
 import { KEYS, POSITIONS, notePool } from "./music.js";
 import styles from "./App.module.css";
 
@@ -31,6 +32,7 @@ export default function App() {
   const [settings, setSettings] = useState(loadSettings);
   const [listening, setListening] = useState(false);
   const [micError, setMicError] = useState(null);
+  useWakeLock();
 
   const keyDef = KEYS.find((k) => k.id === settings.keyId);
   const position = POSITIONS.find((p) => p.id === settings.positionId);

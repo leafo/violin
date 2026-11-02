@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { KEYS, POSITIONS, STRINGS } from "./music.js";
+import { NARROW } from "./useMedia";
 import styles from "./App.module.css";
 
 function Check({ checked, onChange, children }) {
@@ -12,6 +14,7 @@ function Check({ checked, onChange, children }) {
 
 export default function Settings({ settings, update }) {
   const phrase = settings.mode === "phrase";
+  const [open] = useState(() => !window.matchMedia(NARROW).matches);
 
   const toggleString = (i) => {
     const has = settings.strings.includes(i);
@@ -22,7 +25,9 @@ export default function Settings({ settings, update }) {
   };
 
   return (
-    <section className={`${styles.card} ${styles.settings}`}>
+    <details className={`${styles.card} ${styles.settingsCard}`} open={open}>
+      <summary>Settings</summary>
+      <div className={styles.settings}>
       <label>
         Key
         <select value={settings.keyId} onChange={(e) => update({ keyId: e.target.value })}>
@@ -104,6 +109,7 @@ export default function Settings({ settings, update }) {
       <Check checked={settings.alwaysShow} onChange={(alwaysShow) => update({ alwaysShow })}>
         Always show string and finger
       </Check>
-    </section>
+      </div>
+    </details>
   );
 }

@@ -5,6 +5,7 @@ import MicButton from "./MicButton";
 import { STRINGS, fingerText, noteName } from "./music.js";
 import { createBus, playNote } from "./audio.js";
 import { useMic } from "./useMic";
+import { NARROW, useMedia } from "./useMedia";
 import styles from "./App.module.css";
 
 const NOTE_DURATION = 1.4;
@@ -31,6 +32,7 @@ export default function SingleNote({ keyDef, pool, settings, mic }) {
   const [heard, setHeard] = useState(null);
   const [matched, setMatched] = useState(false);
   const [count, setCount] = useState(0);
+  const narrow = useMedia(NARROW);
 
   const note = pool[Math.min(index, pool.length - 1)];
 
@@ -189,12 +191,14 @@ export default function SingleNote({ keyDef, pool, settings, mic }) {
         </div>
       </section>
 
-      <section className={styles.card}>
-        <Fingerboard note={note} pool={pool} show={showHints} />
-        <p className={styles.caption}>
-          Faint dots: every note of the key in this position. Left is the G string.
-        </p>
-      </section>
+      {(!narrow || showHints) && (
+        <section className={styles.card}>
+          <Fingerboard note={note} pool={pool} show={showHints} />
+          <p className={styles.caption}>
+            Faint dots: every note of the key in this position. Left is the G string.
+          </p>
+        </section>
+      )}
     </div>
   );
 }

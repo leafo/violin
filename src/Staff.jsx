@@ -6,17 +6,20 @@ const HALF = 8;
 const SPACE = HALF * 2;
 const ACCIDENTAL_DX = 14;
 const PAD = 8;
-const TOP_STEP = 16;
-const BOTTOM_STEP = -8;
+// Fixed staff range for single notes, so the staff stays still between notes.
+const SINGLE_TOP = 14;
+const SINGLE_BOTTOM = -6;
+// How far the clef reaches above and below the staff.
+const CLEF_TOP = 11;
+const CLEF_BOTTOM = -4;
 const STEM = 7 * HALF;
 const MARK_H = 22;
 const LABEL_H = 58;
-const BASE_HEIGHT = PAD * 2 + (TOP_STEP - BOTTOM_STEP) * HALF;
 const ADVANCE = { 0.5: 44, 1: 54, 2: 80, 4: 130 };
 const BAR_GAP = 18;
 
 // Staff step 0 is the bottom line (E4); each step is a line or space.
-const y = (step) => PAD + (TOP_STEP - step) * HALF;
+const y = (step) => -step * HALF;
 const staffStep = (note) => note.step - 30;
 
 const SHARP_STEPS = { F: 8, C: 5, G: 9, D: 6, A: 3, E: 7, B: 4 };
@@ -81,14 +84,24 @@ export default function Staff({
     xs[0] = 210 + accW;
   }
 
-  const height = BASE_HEIGHT + (marks ? MARK_H : 0) + (labels ? LABEL_H : 0);
   const pairs = beamPairs(notes);
-  const labelTop = BASE_HEIGHT + (marks ? MARK_H : 0);
+  const stemSteps = STEM / HALF;
+  const steps = notes.flatMap((note) => {
+    const step = staffStep(note);
+    const down = pairs[notes.indexOf(note)]?.down ?? step >= 4;
+    return (note.dur ?? 1) >= 4 ? [step] : [step, step + (down ? -stemSteps : stemSteps)];
+  });
+  const topStep = phrase ? Math.max(CLEF_TOP, ...steps) : SINGLE_TOP;
+  const bottomStep = phrase ? Math.min(CLEF_BOTTOM, ...steps) : SINGLE_BOTTOM;
+  const viewTop = y(topStep) - PAD;
+  const staffBottom = y(bottomStep) + PAD;
+  const labelTop = staffBottom + (marks ? MARK_H : 0);
+  const height = labelTop + (labels ? LABEL_H : 0) - viewTop;
 
   return (
     <svg
       className={styles.staff}
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={`0 ${viewTop} ${width} ${height}`}
       role="img"
       aria-label="Notes on the treble staff"
     >
@@ -133,8 +146,8 @@ export default function Staff({
         const stemX = stemDown ? nx - 9 : nx + 9;
         const tip = pair ? pair.tip : y(step) + (stemDown ? STEM : -STEM);
         const ledgers = [];
-        for (let s = -2; s >= step && s >= BOTTOM_STEP; s -= 2) ledgers.push(s);
-        for (let s = 10; s <= step && s <= TOP_STEP; s += 2) ledgers.push(s);
+        for (let s = -2; s >= step; s -= 2) ledgers.push(s);
+        for (let s = 10; s <= step; s += 2) ledgers.push(s);
         return (
           <g key={i} className={styles[statuses[i] || "idle"]}>
             {ledgers.map((s) => (
@@ -158,7 +171,7 @@ export default function Staff({
               />
             )}
             {marks?.[i] && (
-              <text className={styles.mark} x={nx} y={BASE_HEIGHT + 8} textAnchor="middle">
+              <text className={styles.mark} x={nx} y={staffBottom + 14} textAnchor="middle">
                 {marks[i]}
               </text>
             )}

@@ -7,6 +7,7 @@ import { generatePhrase } from "./phrase.js";
 import { gradeNote, summarize } from "./scoring.js";
 import { click, createBus, getContext, outputDelay, playNote } from "./audio.js";
 import { useMic } from "./useMic";
+import { NARROW, useMedia } from "./useMedia";
 import styles from "./App.module.css";
 
 const COUNT_IN = 4;
@@ -25,17 +26,6 @@ const STATUS_CLASS = {
 };
 const MARKS = { late: "late", short: "short", flat: "flat", sharp: "sharp", wrong: "wrong", silent: "none" };
 
-function useNarrow() {
-  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 600px)").matches);
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 600px)");
-    const onChange = (e) => setNarrow(e.matches);
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, []);
-  return narrow;
-}
-
 const noteAt = (run, t) =>
   run.notes.findIndex((_, i) => t >= run.starts[i] && t < run.starts[i] + run.lengths[i]);
 
@@ -47,12 +37,13 @@ export default function Phrase({ keyDef, pool, settings, mic }) {
   const [cursor, setCursor] = useState(-1);
   const [results, setResults] = useState([]);
   const [revealed, setRevealed] = useState(false);
-  const narrow = useNarrow();
+  const narrow = useMedia(NARROW);
 
   const runRef = useRef(null);
   const rafRef = useRef(0);
   const busRef = useRef(null);
   const phraseRef = useRef([]);
+  const lineRefs = useRef([]);
   const settingsRef = useRef(settings);
   const listeningRef = useRef(mic.listening);
   settingsRef.current = settings;
@@ -198,6 +189,13 @@ export default function Phrase({ keyDef, pool, settings, mic }) {
     return out;
   }, [phrase, narrow]);
 
+  const activeLine = lines.findIndex((line) => line.some((e) => e.index === cursor));
+  useEffect(() => {
+    if (activeLine >= 0) {
+      lineRefs.current[activeLine]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [activeLine]);
+
   if (phrase.length === 0) {
     return <p>No notes of this key fit in that position on the selected strings.</p>;
   }
@@ -217,8 +215,8 @@ export default function Phrase({ keyDef, pool, settings, mic }) {
     <div className={`${styles.layout} ${styles.layoutWide}`}>
       <section className={styles.card}>
         {lines.map((line, l) => (
+          <div key={l} className={styles.line} ref={(el) => (lineRefs.current[l] = el)}>
           <Staff
-            key={l}
             phrase
             notes={line.map((e) => e.note)}
             keyDef={keyDef}
@@ -239,6 +237,7 @@ export default function Phrase({ keyDef, pool, settings, mic }) {
                 : null
             }
           />
+          </div>
         ))}
         <p className={styles.status} data-big={phase === "count"}>
           {status}
@@ -273,10 +272,12 @@ export default function Phrase({ keyDef, pool, settings, mic }) {
           <MicButton mic={mic} offLabel="Score me: use mic" onLabel="Scoring on: stop" />
         </div>
       </section>
-      <section className={styles.card}>
-        <Fingerboard note={boardNote} pool={pool} show={showHints} />
-        <p className={styles.caption}>Left is the G string.</p>
-      </section>
+      {(!narrow || showHints) && (
+        <section className={styles.card}>
+          <Fingerboard note={boardNote} pool={pool} show={showHints} />
+          <p className={styles.caption}>Left is the G string.</p>
+        </section>
+      )}
     </div>
   );
 }
