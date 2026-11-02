@@ -1,7 +1,10 @@
+import Glyph from "./Glyph";
 import { keySignature } from "./music.js";
 import styles from "./Staff.module.css";
 
 const HALF = 8;
+const SPACE = HALF * 2;
+const ACCIDENTAL_DX = 14;
 const PAD = 8;
 const TOP_STEP = 16;
 const BOTTOM_STEP = -8;
@@ -47,11 +50,11 @@ export default function Staff({
 }) {
   const sig = keySignature(keyDef);
   const accidentals = sig.sharps.length
-    ? sig.sharps.map((l) => ({ sym: "♯", step: SHARP_STEPS[l] }))
-    : sig.flats.map((l) => ({ sym: "♭", step: FLAT_STEPS[l] }));
-  const accW = accidentals.length * 16;
-  const sigEnd = 92 + accW;
-  const firstX = sigEnd + (timeSignature ? 44 : 0) + 30;
+    ? sig.sharps.map((l) => ({ glyph: "sharp", step: SHARP_STEPS[l] }))
+    : sig.flats.map((l) => ({ glyph: "flat", step: FLAT_STEPS[l] }));
+  const accW = accidentals.length * ACCIDENTAL_DX;
+  const sigEnd = 62 + accW;
+  const firstX = sigEnd + (timeSignature ? 36 : 0) + 28;
 
   let xs = [];
   let barLines = [];
@@ -92,19 +95,22 @@ export default function Staff({
       {[0, 2, 4, 6, 8].map((s) => (
         <line key={s} className={styles.line} x1="4" x2={width - 4} y1={y(s)} y2={y(s)} />
       ))}
-      <text className={styles.clef} x="12" y={y(2) + 4}>
-        𝄞
-      </text>
+      <Glyph className={styles.symbol} name="clef" x={12} y={y(2)} space={SPACE} />
       {accidentals.map((a, i) => (
-        <text key={i} className={styles.accidental} x={86 + i * 16} y={y(a.step) + 8}>
-          {a.sym}
-        </text>
+        <Glyph
+          key={i}
+          className={styles.symbol}
+          name={a.glyph}
+          x={62 + i * ACCIDENTAL_DX}
+          y={y(a.step)}
+          space={SPACE}
+        />
       ))}
       {timeSignature && (
-        <g className={styles.timeSignature}>
-          <text x={sigEnd + 22} y={y(6) + 12} textAnchor="middle">4</text>
-          <text x={sigEnd + 22} y={y(2) + 12} textAnchor="middle">4</text>
-        </g>
+        <>
+          <Glyph className={styles.symbol} name="four" x={sigEnd + 16} y={y(6)} space={SPACE} />
+          <Glyph className={styles.symbol} name="four" x={sigEnd + 16} y={y(2)} space={SPACE} />
+        </>
       )}
       {barLines.map((bx) => (
         <line key={bx} className={styles.line} x1={bx} x2={bx} y1={y(8)} y2={y(0)} />
@@ -132,15 +138,14 @@ export default function Staff({
         return (
           <g key={i} className={styles[statuses[i] || "idle"]}>
             {ledgers.map((s) => (
-              <line key={s} className={styles.ledger} x1={nx - 16} x2={nx + 16} y1={y(s)} y2={y(s)} />
+              <line key={s} className={styles.ledger} x1={nx - 18} x2={nx + 18} y1={y(s)} y2={y(s)} />
             ))}
-            <ellipse
-              className={dur >= 2 ? styles.hollow : styles.head}
-              cx={nx}
-              cy={y(step)}
-              rx="10"
-              ry="7"
-              transform={`rotate(-20 ${nx} ${y(step)})`}
+            <Glyph
+              className={styles.head}
+              name={dur >= 4 ? "wholeHead" : dur >= 2 ? "halfHead" : "quarterHead"}
+              x={nx}
+              y={y(step)}
+              space={SPACE}
             />
             {dur < 4 && <line className={styles.stem} x1={stemX} x2={stemX} y1={y(step)} y2={tip} />}
             {pair && pair.first === i && (

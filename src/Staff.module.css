@@ -21,14 +21,7 @@
   stroke-width: 1.8;
 }
 
-.clef {
-  font-family: "Noto Music", "Bravura", "Symbola", serif;
-  font-size: 78px;
-  fill: var(--ink);
-}
-
-.accidental {
-  font-size: 30px;
+.symbol {
   fill: var(--ink);
 }
 
@@ -56,12 +49,6 @@
   fill: var(--c);
 }
 
-.hollow {
-  fill: var(--card);
-  stroke: var(--c);
-  stroke-width: 2.5;
-}
-
 .stem {
   stroke: var(--c);
   stroke-width: 2;
@@ -70,12 +57,6 @@
 .beam {
   stroke: var(--c);
   stroke-width: 6;
-}
-
-.timeSignature text {
-  font-size: 34px;
-  font-weight: 700;
-  fill: var(--ink);
 }
 
 .mark {
