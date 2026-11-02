@@ -5,6 +5,8 @@
   --muted: #8a7766;
   --accent: #a8431f;
   --good: #3d7a3a;
+  --warn: #a8700a;
+  --bad: #b3261e;
   --line: #e0d4bb;
 }
 
@@ -17,8 +19,4 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: Georgia, "Times New Roman", serif;
-}
-
-:root {
-  --bad: #b3261e;
 }

@@ -1,36 +1,67 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Staff from "./Staff";
 import Fingerboard from "./Fingerboard";
-import { STRINGS, generatePhrase, noteName } from "./music";
-import { click, getContext, playNote } from "./audio";
+import MicButton from "./MicButton";
+import { STRINGS, fingerText, noteName } from "./music.js";
+import { generatePhrase } from "./phrase.js";
+import { gradeNote, summarize } from "./scoring.js";
+import { click, createBus, getContext, outputDelay, playNote } from "./audio.js";
 import { useMic } from "./useMic";
 import styles from "./App.module.css";
 
 const COUNT_IN = 4;
-const TOLERANCE_CENTS = 40;
-// Players land slightly after the beat, and mic and speaker add latency.
-const LAG = 0.12;
+// YIN reads the older half of the analyser buffer, so pitch reports trail the sound.
+const DETECTOR_DELAY = 0.07;
+const TAIL = 0.1;
 
-const needed = (run) => Math.min(0.25, run.beat * 0.35);
+const STATUS_CLASS = {
+  hit: "hit",
+  late: "late",
+  short: "late",
+  flat: "miss",
+  sharp: "miss",
+  wrong: "miss",
+  silent: "miss",
+};
+const MARKS = { late: "late", short: "short", flat: "flat", sharp: "sharp", wrong: "wrong", silent: "none" };
 
-export default function Phrase({ keyDef, pool, settings }) {
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => window.matchMedia("(max-width: 600px)").matches);
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 600px)");
+    const onChange = (e) => setNarrow(e.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return narrow;
+}
+
+const noteAt = (run, t) =>
+  run.notes.findIndex((_, i) => t >= run.starts[i] && t < run.starts[i] + run.lengths[i]);
+
+export default function Phrase({ keyDef, pool, settings, mic }) {
   const [phrase, setPhrase] = useState([]);
   const [phase, setPhase] = useState("idle");
+  const [runMode, setRunMode] = useState(null);
   const [count, setCount] = useState(0);
   const [cursor, setCursor] = useState(-1);
   const [results, setResults] = useState([]);
   const [revealed, setRevealed] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [micError, setMicError] = useState(null);
+  const narrow = useNarrow();
 
   const runRef = useRef(null);
   const rafRef = useRef(0);
+  const busRef = useRef(null);
   const phraseRef = useRef([]);
   const settingsRef = useRef(settings);
+  const listeningRef = useRef(mic.listening);
   settingsRef.current = settings;
+  listeningRef.current = mic.listening;
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
+    busRef.current?.cancel();
+    busRef.current = null;
     runRef.current = null;
     setPhase("idle");
     setCount(0);
@@ -41,47 +72,51 @@ export default function Phrase({ keyDef, pool, settings }) {
     stop();
     setResults([]);
     setRevealed(false);
-    const p = generatePhrase(pool, keyDef, settings.phraseLen);
+    const p = generatePhrase(pool, keyDef, settings.bars, settings.rhythm);
     phraseRef.current = p;
     setPhrase(p);
-  }, [pool, keyDef, settings.phraseLen, stop]);
+  }, [pool, keyDef, settings.bars, settings.rhythm, stop]);
 
   useEffect(() => {
     newPhrase();
   }, [newPhrase]);
 
-  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+  useEffect(() => stop, [stop]);
+
+  const finalize = (run, i) => {
+    const seconds = run.lengths[i];
+    run.final[i] = gradeNote(run.samples[i], run.notes[i].midi, seconds);
+  };
 
   const tick = useCallback(() => {
     const run = runRef.current;
     if (!run) return;
     const now = getContext().currentTime;
-    const el = now - run.noteStart;
+    const heardNow = now - run.outDelay;
+    const el = heardNow - run.noteStart;
 
     if (el < 0) {
-      setCount(now < run.t0 ? 0 : Math.floor((now - run.t0) / run.beat) + 1);
-      setCursor(-1);
+      setCount(heardNow < run.t0 ? 0 : Math.floor((heardNow - run.t0) / run.beat) + 1);
     } else {
       setCount(0);
       setPhase("run");
-      const idx = Math.floor(el / run.beat);
-      setCursor(idx < run.n ? idx : -1);
+      setCursor(noteAt(run, el));
 
-      if (run.mode === "play") {
-        const graded = Math.min(Math.floor((el - LAG) / run.beat), run.n);
+      if (run.scored) {
+        const graded = el - DETECTOR_DELAY - TAIL;
         let changed = false;
-        for (let i = 0; i < graded; i++) {
-          if (run.final[i] === null) {
-            run.final[i] = run.acc[i] >= needed(run) ? "hit" : "miss";
+        run.notes.forEach((_, i) => {
+          if (run.final[i] === null && graded >= run.starts[i] + run.lengths[i]) {
+            finalize(run, i);
             changed = true;
           }
-        }
+        });
         if (changed) setResults(run.final.slice());
       }
 
-      const end = run.n * run.beat + (run.mode === "play" ? LAG : 0);
-      if (el >= end) {
+      if (el >= run.total + (run.scored ? DETECTOR_DELAY + TAIL : 0)) {
         runRef.current = null;
+        busRef.current = null;
         setCursor(-1);
         setPhase(run.mode === "play" ? "done" : "idle");
         return;
@@ -91,24 +126,33 @@ export default function Phrase({ keyDef, pool, settings }) {
   }, []);
 
   const start = (mode) => {
-    const p = phraseRef.current;
-    if (!p.length) return;
+    const notes = phraseRef.current;
+    if (!notes.length) return;
     stop();
     setResults([]);
+
     const ac = getContext();
+    const bus = createBus();
+    busRef.current = bus;
     const beat = 60 / settingsRef.current.bpm;
     const t0 = ac.currentTime + 0.2;
-    const countBeats = mode === "play" ? COUNT_IN : 0;
-    const noteStart = t0 + countBeats * beat;
+    const noteStart = t0 + (mode === "play" ? COUNT_IN : 0) * beat;
     const rel = (t) => t - ac.currentTime;
+    const starts = notes.map((n) => n.beat * beat);
+    const lengths = notes.map((n) => n.dur * beat);
+    const total = settingsRef.current.bars * 4 * beat;
 
     if (mode === "play") {
-      for (let k = 0; k < COUNT_IN; k++) click(rel(t0 + k * beat), k === 0);
+      for (let k = 0; k < COUNT_IN; k++) click(rel(t0 + k * beat), k === 0, bus.node);
       if (settingsRef.current.click) {
-        for (let i = 0; i < p.length; i++) click(rel(noteStart + i * beat), i % 4 === 0);
+        for (let b = 0; b < settingsRef.current.bars * 4; b++) {
+          click(rel(noteStart + b * beat), b % 4 === 0, bus.node);
+        }
       }
     } else {
-      p.forEach((n, i) => playNote(n.midi, beat * 0.95, rel(noteStart + i * beat)));
+      notes.forEach((n, i) => {
+        playNote(n.midi, lengths[i] * 0.95, rel(noteStart + starts[i]), bus.node);
+      });
     }
 
     runRef.current = {
@@ -116,98 +160,121 @@ export default function Phrase({ keyDef, pool, settings }) {
       t0,
       noteStart,
       beat,
-      n: p.length,
-      acc: new Array(p.length).fill(0),
-      final: new Array(p.length).fill(null),
+      notes,
+      starts,
+      lengths,
+      total,
+      outDelay: outputDelay(),
+      scored: mode === "play" && listeningRef.current,
+      samples: notes.map(() => []),
+      final: new Array(notes.length).fill(null),
       lastT: null,
     };
+    setRunMode(mode);
     setPhase(mode === "play" ? "count" : "run");
     rafRef.current = requestAnimationFrame(tick);
   };
 
   const onPitch = useCallback((midi) => {
     const run = runRef.current;
-    if (!run || run.mode !== "play") return;
+    if (!run || !run.scored) return;
     const now = getContext().currentTime;
     const dt = run.lastT === null ? 0 : Math.min(now - run.lastT, 0.1);
     run.lastT = now;
-    const idx = Math.floor((now - run.noteStart - LAG) / run.beat);
-    if (idx < 0 || idx >= run.n || midi === null) return;
-    if (Math.abs(midi - phraseRef.current[idx].midi) * 100 <= TOLERANCE_CENTS) run.acc[idx] += dt;
+    const el = now - run.outDelay - run.noteStart - DETECTOR_DELAY;
+    const idx = noteAt(run, el);
+    if (idx >= 0) run.samples[idx].push({ t: el - run.starts[idx], midi, dt });
   }, []);
 
-  useMic(listening, onPitch, () => {
-    setMicError("Microphone access was blocked.");
-    setListening(false);
-  });
+  useMic(mic.listening, onPitch, mic.fail);
+
+  const lines = useMemo(() => {
+    const perLine = narrow ? 1 : 2;
+    const out = [];
+    phrase.forEach((note, index) => {
+      const line = Math.floor(note.bar / perLine);
+      (out[line] ||= []).push({ note, index });
+    });
+    return out;
+  }, [phrase, narrow]);
+
+  if (phrase.length === 0) {
+    return <p>No notes of this key fit in that position on the selected strings.</p>;
+  }
 
   const running = phase === "count" || phase === "run";
   const showHints = settings.alwaysShow || revealed;
-  const statuses = phrase.map((_, i) => results[i] || (i === cursor ? "active" : "idle"));
-  const labels = showHints
-    ? phrase.map((n) => ({
-        name: `${noteName(n)}${n.octave}`,
-        where: `${STRINGS[n.string].name} ${n.finger === 0 ? "open" : n.finger}`,
-      }))
-    : null;
   const boardNote = phrase[cursor >= 0 ? cursor : 0];
-  const hits = results.filter((r) => r === "hit").length;
 
   let status = "Hear it first, then play along with the count-in.";
   if (phase === "count") status = count > 0 ? String(count) : "Get ready";
-  else if (phase === "run") status = runRef.current?.mode === "hear" ? "Listen" : "Play!";
+  else if (phase === "run") status = runMode === "hear" ? "Listen" : "Play!";
   else if (phase === "done") {
-    status = listening ? `${hits} of ${phrase.length} in tune` : "Done. Turn on the mic to get scored.";
+    status = results.length ? summarize(results) : "Done. Turn on the mic to get scored.";
   }
 
   return (
-    <div className={styles.layout}>
+    <div className={`${styles.layout} ${styles.layoutWide}`}>
       <section className={styles.card}>
-        {phrase.length ? (
-          <>
-            <Staff notes={phrase} keyDef={keyDef} statuses={statuses} labels={labels} />
-            <p className={styles.status} data-big={phase === "count"}>
-              {status}
-            </p>
-            <div className={styles.controls}>
-              <button disabled={running} onClick={() => start("hear")}>
-                ▶ Hear it
-              </button>
-              {running ? (
-                <button className={styles.primary} onClick={() => { stop(); setResults([]); }}>
-                  ■ Stop
-                </button>
-              ) : (
-                <button className={styles.primary} onClick={() => start("play")}>
-                  ● Play along
-                </button>
-              )}
-              <button onClick={() => setRevealed((r) => !r)}>
-                {showHints ? "Hide answer" : "Show answer"}
-              </button>
-              <button disabled={running} onClick={newPhrase}>
-                New phrase
-              </button>
-            </div>
-            <div className={styles.listen}>
-              <button
-                className={listening ? styles.on : ""}
-                onClick={() => {
-                  setMicError(null);
-                  setListening((l) => !l);
-                }}
-              >
-                🎤 {listening ? "Scoring on: stop" : "Score me: use mic"}
-              </button>
-              {micError && <span className={styles.error}>{micError}</span>}
-            </div>
-          </>
-        ) : (
-          <p>No notes of this key fit in that position on the selected strings.</p>
-        )}
+        {lines.map((line, l) => (
+          <Staff
+            key={l}
+            phrase
+            notes={line.map((e) => e.note)}
+            keyDef={keyDef}
+            timeSignature={l === 0}
+            finalBar={l === lines.length - 1}
+            lineWidth={narrow || settings.bars === 1 ? 460 : 720}
+            statuses={line.map(({ index }) =>
+              results[index] ? STATUS_CLASS[results[index]] : index === cursor ? "active" : "idle"
+            )}
+            marks={results.length ? line.map(({ index }) => MARKS[results[index]]) : null}
+            labels={
+              showHints
+                ? line.map(({ note }) => ({
+                    name: `${noteName(note)}${note.octave}`,
+                    string: `on ${STRINGS[note.string].name}`,
+                    finger: fingerText(note),
+                  }))
+                : null
+            }
+          />
+        ))}
+        <p className={styles.status} data-big={phase === "count"}>
+          {status}
+        </p>
+        <div className={styles.controls}>
+          <button disabled={running} onClick={() => start("hear")}>
+            ▶ Hear it
+          </button>
+          {running ? (
+            <button
+              className={styles.primary}
+              onClick={() => {
+                stop();
+                setResults([]);
+              }}
+            >
+              ■ Stop
+            </button>
+          ) : (
+            <button className={styles.primary} onClick={() => start("play")}>
+              ● Play along
+            </button>
+          )}
+          <button onClick={() => setRevealed((r) => !r)}>
+            {showHints ? "Hide answer" : "Show answer"}
+          </button>
+          <button disabled={running} onClick={newPhrase}>
+            New phrase
+          </button>
+        </div>
+        <div className={styles.listen}>
+          <MicButton mic={mic} offLabel="Score me: use mic" onLabel="Scoring on: stop" />
+        </div>
       </section>
       <section className={styles.card}>
-        {boardNote && <Fingerboard note={boardNote} pool={pool} show={showHints} />}
+        <Fingerboard note={boardNote} pool={pool} show={showHints} />
         <p className={styles.caption}>Left is the G string.</p>
       </section>
     </div>

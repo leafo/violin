@@ -44,6 +44,10 @@
   --c: var(--good);
 }
 
+.late {
+  --c: var(--warn);
+}
+
 .miss {
   --c: var(--bad);
 }
@@ -52,19 +56,42 @@
   fill: var(--c);
 }
 
+.hollow {
+  fill: var(--card);
+  stroke: var(--c);
+  stroke-width: 2.5;
+}
+
 .stem {
   stroke: var(--c);
   stroke-width: 2;
 }
 
-.label {
+.beam {
+  stroke: var(--c);
+  stroke-width: 6;
+}
+
+.timeSignature text {
+  font-size: 34px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.mark {
   font-size: 15px;
   font-weight: 700;
   fill: var(--c);
 }
 
+.label {
+  font-size: 17px;
+  font-weight: 700;
+  fill: var(--c);
+}
+
 .where {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 400;
   fill: var(--muted);
 }

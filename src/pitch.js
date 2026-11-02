@@ -1,4 +1,4 @@
-import { getContext } from "./audio";
+import { getContext } from "./audio.js";
 
 const MIN_FREQ = 180;
 const MAX_FREQ = 1500;

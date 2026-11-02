@@ -26,6 +26,10 @@
   .layout {
     grid-template-columns: 1.6fr 1fr;
   }
+
+  .layout.layoutWide {
+    grid-template-columns: 3.2fr 1fr;
+  }
 }
 
 .card {

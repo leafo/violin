@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { startListening } from "./pitch";
+import { startListening } from "./pitch.js";
 
 export function useMic(enabled, onPitch, onError) {
   const pitchRef = useRef(onPitch);

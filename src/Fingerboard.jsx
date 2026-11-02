@@ -28,18 +28,15 @@ export default function Fingerboard({ note, pool, show }) {
           </text>
         </g>
       ))}
-      {pool.map((n) => {
-        if (n.midi === note.midi) return null;
-        return (
-          <circle
-            key={n.midi}
-            className={n.offset === 0 ? styles.ghostOpen : styles.ghost}
-            cx={STRING_X[n.string]}
-            cy={n.offset === 0 ? NUT_Y - 15 : yFor(n.offset)}
-            r={n.offset === 0 ? 4 : 5}
-          />
-        );
-      })}
+      {pool.map((n) => (
+        <circle
+          key={n.midi}
+          className={n.offset === 0 ? styles.ghostOpen : styles.ghost}
+          cx={STRING_X[n.string]}
+          cy={n.offset === 0 ? NUT_Y - 15 : yFor(n.offset)}
+          r={n.offset === 0 ? 4 : 5}
+        />
+      ))}
       {show && (
         <g className={styles.current}>
           <circle

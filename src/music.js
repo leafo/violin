@@ -3,10 +3,10 @@ const NATURAL_PC = [0, 2, 4, 5, 7, 9, 11];
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
 
 export const STRINGS = [
-  { name: "G", midi: 55 },
-  { name: "D", midi: 62 },
-  { name: "A", midi: 69 },
-  { name: "E", midi: 76 },
+  { name: "G", midi: 55, step: 25 },
+  { name: "D", midi: 62, step: 29 },
+  { name: "A", midi: 69, step: 33 },
+  { name: "E", midi: 76, step: 37 },
 ];
 
 export const KEYS = [
@@ -20,12 +20,10 @@ export const KEYS = [
   { id: "Eb", tonic: "E", acc: -1 },
 ];
 
-// Hand "origin": the semitone offset above the open string where the first
-// finger sits in its lowest placement.
 export const POSITIONS = [
-  { id: 1, label: "1st", origin: 1 },
-  { id: 2, label: "2nd", origin: 3 },
-  { id: 3, label: "3rd", origin: 5 },
+  { id: 1, label: "1st" },
+  { id: 2, label: "2nd" },
+  { id: 3, label: "3rd" },
 ];
 
 export function accSymbol(acc) {
@@ -69,26 +67,43 @@ export function spell(midi, scale) {
   return { ...n, octave, midi, step: octave * 7 + n.letterIdx };
 }
 
-// Finger spots relative to the hand origin: low/high slots for fingers 1-3,
-// and a single spot for the 4th finger.
-function fingerFor(offset, origin) {
-  if (offset === 0) return 0;
-  const rel = offset - origin;
-  if (rel < 0 || rel > 6) return null;
-  return Math.floor(rel / 2) + 1;
+// Positions are diatonic: each finger owns a letter name, so a note's finger
+// comes from its letter distance to the open string, not its semitone distance.
+// E♭ on the A string is a low 4, not a high 3.
+function stoppedFinger(note, string, position) {
+  if (note.midi <= string.midi) return null;
+  const finger = note.step - string.step - (position.id - 1);
+  if (finger >= 1 && finger <= 4) return finger;
+  // A raised open-string letter, such as G♯ on the G string.
+  if (finger === 0 && position.id === 1) return 1;
+  return null;
 }
 
-export function fingering(midi, position, allowedStrings) {
-  let best = null;
-  STRINGS.forEach((s, i) => {
-    if (!allowedStrings.includes(i)) return;
-    const offset = midi - s.midi;
-    if (offset < 0) return;
-    const finger = fingerFor(offset, position.origin);
-    if (finger === null) return;
-    if (!best || offset < best.offset) best = { string: i, offset, finger };
+// Keyed by finger, then semitones above the open string. Only 1st position has
+// a settled low/high vocabulary, so other positions show the bare finger.
+const PLACEMENTS = {
+  1: { 1: "low" },
+  2: { 3: "low", 4: "high" },
+  3: { 6: "high" },
+  4: { 6: "low", 8: "high" },
+};
+
+function fingering(note, position, allowedStrings) {
+  const candidates = allowedStrings.map((i) => {
+    const string = STRINGS[i];
+    const offset = note.midi - string.midi;
+    if (offset === 0) return position.id === 1 ? { string: i, offset, finger: 0 } : null;
+    const finger = stoppedFinger(note, string, position);
+    if (finger === null) return null;
+    const placement = position.id === 1 ? PLACEMENTS[finger]?.[offset] ?? null : null;
+    return { string: i, offset, finger, placement };
   });
-  return best;
+  return candidates.filter(Boolean).sort((a, b) => a.finger - b.finger)[0] ?? null;
+}
+
+export function fingerText(note) {
+  if (note.finger === 0) return "open";
+  return note.placement ? `${note.placement} ${note.finger}` : String(note.finger);
 }
 
 // Every diatonic note of the key that can be played in the position on the
@@ -99,7 +114,7 @@ export function notePool(key, position, allowedStrings) {
   for (let midi = STRINGS[0].midi; midi <= STRINGS[3].midi + 12; midi++) {
     const note = spell(midi, scale);
     if (!note) continue;
-    const fing = fingering(midi, position, allowedStrings);
+    const fing = fingering(note, position, allowedStrings);
     if (!fing) continue;
     pool.push({ ...note, ...fing });
   }
@@ -112,26 +127,4 @@ export function noteName(note) {
 
 export function tonicPc(key) {
   return (NATURAL_PC[LETTERS.indexOf(key.tonic)] + key.acc + 12) % 12;
-}
-
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
-// Stepwise random walk that starts on the tonic and lands on the nearest one.
-export function generatePhrase(pool, key, length) {
-  if (pool.length === 0) return [];
-  const tonics = pool.map((n, i) => (n.midi % 12 === tonicPc(key) ? i : -1)).filter((i) => i >= 0);
-  let i = tonics.length ? pick(tonics) : Math.floor(Math.random() * pool.length);
-  const out = [i];
-  while (out.length < length - 1) {
-    const s = pick([-2, -1, -1, 1, 1, 2, 0]);
-    let j = i + s;
-    if (j < 0 || j >= pool.length) j = i - s;
-    i = Math.max(0, Math.min(pool.length - 1, j));
-    out.push(i);
-  }
-  if (tonics.length) {
-    i = tonics.reduce((best, t) => (Math.abs(t - i) < Math.abs(best - i) ? t : best));
-  }
-  out.push(i);
-  return out.map((idx) => pool[idx]);
 }
