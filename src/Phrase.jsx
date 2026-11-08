@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Staff from "./Staff";
 import Fingerboard from "./Fingerboard";
-import MicButton from "./MicButton";
+import MicButton, { MicState } from "./MicButton";
 import { STRINGS, fingerText, noteName } from "./music.js";
 import { generatePhrase } from "./phrase.js";
 import { gradeNote, summarize } from "./scoring.js";
@@ -204,6 +204,11 @@ export default function Phrase({ keyDef, pool, settings, mic }) {
   const showHints = settings.alwaysShow || revealed;
   const boardNote = phrase[cursor >= 0 ? cursor : 0];
 
+  let micState = ["idle", "Mic waiting for Play along"];
+  if (runMode === "hear" && running) micState = ["paused", "Mic paused while the phrase plays"];
+  else if (phase === "count") micState = ["idle", "Listening after the count-in"];
+  else if (phase === "run") micState = ["listening", "Listening"];
+
   let status = "Hear it first, then play along with the count-in.";
   if (phase === "count") status = count > 0 ? String(count) : "Get ready";
   else if (phase === "run") status = runMode === "hear" ? "Listen" : "Play!";
@@ -270,6 +275,7 @@ export default function Phrase({ keyDef, pool, settings, mic }) {
         </div>
         <div className={styles.listen}>
           <MicButton mic={mic} offLabel="Score me: use mic" onLabel="Scoring on: stop" />
+          {mic.listening && <MicState state={micState[0]}>{micState[1]}</MicState>}
         </div>
       </section>
       {(!narrow || showHints) && (

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Staff from "./Staff";
 import Fingerboard from "./Fingerboard";
-import MicButton from "./MicButton";
+import MicButton, { MicState } from "./MicButton";
 import { STRINGS, fingerText, noteName } from "./music.js";
-import { createBus, playNote } from "./audio.js";
+import { createBus, outputDelay, playNote } from "./audio.js";
 import { useMic } from "./useMic";
 import { NARROW, useMedia } from "./useMedia";
 import styles from "./App.module.css";
@@ -13,6 +13,8 @@ const HOLD_MS = 300;
 const TOLERANCE_CENTS = 35;
 const GRACE_MS = 150;
 const ADVANCE_MS = 900;
+// Room echo after the note's release.
+const ECHO_MS = 250;
 const CHROMATIC = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 
 const randomIndex = (length, not) => {
@@ -32,6 +34,7 @@ export default function SingleNote({ keyDef, pool, settings, mic }) {
   const [heard, setHeard] = useState(null);
   const [matched, setMatched] = useState(false);
   const [count, setCount] = useState(0);
+  const [paused, setPaused] = useState(false);
   const narrow = useMedia(NARROW);
 
   const note = pool[Math.min(index, pool.length - 1)];
@@ -44,6 +47,7 @@ export default function SingleNote({ keyDef, pool, settings, mic }) {
   const nextRef = useRef(null);
   const advanceRef = useRef(0);
   const busRef = useRef(null);
+  const pauseRef = useRef(0);
   targetRef.current = note?.midi ?? null;
 
   const clearRound = useCallback(() => {
@@ -68,6 +72,7 @@ export default function SingleNote({ keyDef, pool, settings, mic }) {
   useEffect(
     () => () => {
       clearTimeout(advanceRef.current);
+      clearTimeout(pauseRef.current);
       silence();
     },
     [silence]
@@ -77,7 +82,11 @@ export default function SingleNote({ keyDef, pool, settings, mic }) {
     (midi) => {
       silence();
       busRef.current = createBus();
-      ignoreUntilRef.current = performance.now() + NOTE_DURATION * 1000 + 250;
+      const ignoreMs = (NOTE_DURATION + outputDelay()) * 1000 + ECHO_MS;
+      ignoreUntilRef.current = performance.now() + ignoreMs;
+      clearTimeout(pauseRef.current);
+      setPaused(true);
+      pauseRef.current = setTimeout(() => setPaused(false), ignoreMs);
       holdRef.current = { since: null, lastGood: 0 };
       playNote(midi, NOTE_DURATION, 0, busRef.current.node);
     },
@@ -137,6 +146,7 @@ export default function SingleNote({ keyDef, pool, settings, mic }) {
 
   let tuning = "Play the note and hold it";
   if (matched) tuning = "Got it!";
+  else if (paused) tuning = "Listen…";
   else if (heardName) {
     const offBy = cents > TOLERANCE_CENTS ? " (sharp)" : cents < -TOLERANCE_CENTS ? " (flat)" : "";
     tuning = `Hearing ${heardName}${offBy}`;
@@ -174,7 +184,10 @@ export default function SingleNote({ keyDef, pool, settings, mic }) {
           <MicButton mic={mic} offLabel="Play along: use mic" onLabel="Listening: stop" />
           {mic.listening && (
             <>
-              <div className={styles.meter} aria-hidden="true">
+              <MicState state={paused || matched ? "paused" : "listening"}>
+                {paused ? "Mic paused while the note plays" : matched ? "Mic paused" : "Listening"}
+              </MicState>
+              <div className={styles.meter} data-paused={paused} aria-hidden="true">
                 <div className={styles.meterZone} />
                 {cents !== null && (
                   <div

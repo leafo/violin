@@ -97,6 +97,43 @@ button.on {
   gap: 10px;
 }
 
+.micState {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.micState::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+}
+
+.micState[data-state="listening"] {
+  color: var(--good);
+}
+
+.micState[data-state="listening"]::before {
+  background: currentColor;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .micState[data-state="listening"]::before {
+    animation: none;
+  }
+}
+
 .error {
   color: var(--accent);
 }
@@ -108,6 +145,10 @@ button.on {
   height: 14px;
   border-radius: 7px;
   background: var(--line);
+}
+
+.meter[data-paused="true"] {
+  opacity: 0.4;
 }
 
 .meterZone {
